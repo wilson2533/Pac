@@ -22,7 +22,7 @@ jobs:
         run: pip install requests
 
       - name: 🔹 Ejecutar script de generación
-        run: python generate_pac.py
+        run: python Pac/generate_pac.py
 
       - name: 🔹 Confirmar cambios y subir archivo PAC
         run: |
