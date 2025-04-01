@@ -1,0 +1,38 @@
+name: Generar Proxy PAC
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Ejecutar cada hora
+  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub Actions
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔹 Clonar repositorio
+        uses: actions/checkout@v3
+
+      - name: 🔹 Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: 🔹 Instalar dependencias
+        run: pip install requests
+
+      - name: 🔹 Ejecutar script de generación
+        run: python generate_pac.py
+
+      - name: 🔹 Configurar credenciales de Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/wilson2533/Pac.git
+
+      - name: 🔹 Confirmar cambios y subir archivo PAC
+        run: |
+          git add proxy.pac
+          git commit -m "♻ Actualizando proxy.pac automáticamente"
+          git push origin main
+        continue-on-error: true
