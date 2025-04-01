@@ -1,38 +1,34 @@
-name: Generar y actualizar proxy.pac
+name: Generar Proxy PAC
 
 on:
   schedule:
-    # Ejecuta diariamente a las 00:00 UTC (ajusta según necesites)
-    - cron: '0 0 * * *'
-  workflow_dispatch:  # Permite ejecutar manualmente el workflow
+    - cron: '0 * * * *'  # Ejecutar cada hora
+  workflow_dispatch:  # Permite ejecutarlo manualmente desde GitHub Actions
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout del repositorio
+      - name: 🔹 Clonar repositorio
         uses: actions/checkout@v3
 
-      - name: Configurar Python
+      - name: 🔹 Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Instalar dependencias
+      - name: 🔹 Instalar dependencias
         run: pip install requests
 
-      - name: Ejecutar script para generar proxy.pac
-        run: python generar_pac.py
+      - name: 🔹 Ejecutar script de generación
+        run: python generate_pac.py
 
-      - name: Confirmar cambios en proxy.pac
+      - name: 🔹 Confirmar cambios y subir archivo PAC
         run: |
-          git config --local user.email "wilsonminaya23062003@gmail.com"
-          git config --local user.name "wilson2533"
-          if [ -n "$(git status --porcelain)" ]; then
-            git add proxy.pac
-            git commit -m "Actualización automática de proxy.pac"
-            git push
-          else
-            echo "No hay cambios en proxy.pac"
-          fi
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add proxy.pac
+          git commit -m "Actualizando proxy.pac"
+          git push
+        continue-on-error: true
