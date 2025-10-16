@@ -30,22 +30,53 @@ jobs:
         pip install requests
         
     - name: Update proxy list
-      run: python scripts/update_proxies.py
+      id: update
+      run: |
+        # Mostrar el contenido actual antes de cambiar
+        echo "=== CONTENIDO ACTUAL DEL PAC ==="
+        head -20 proxy.pac
+        echo "================================="
+        
+        # Ejecutar el script de actualización
+        python scripts/update_proxies.py
+        
+        # Mostrar el contenido después de cambiar
+        echo "=== CONTENIDO NUEVO DEL PAC ==="
+        head -20 proxy.pac
+        echo "================================"
         
     - name: Check for changes
       id: changes
       run: |
+        echo "=== VERIFICANDO CAMBIOS ==="
+        git status
+        git diff proxy.pac || true
+        
+        # Agregar el archivo modificado
         git add proxy.pac
-        if git diff --staged --quiet; then
-          echo "changed=false" >> $GITHUB_OUTPUT
-        else
+        
+        # Verificar si hay cambios para commit
+        if ! git diff --staged --quiet; then
           echo "changed=true" >> $GITHUB_OUTPUT
+          echo "✅ Hay cambios para commit"
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "❌ No hay cambios para commit"
         fi
         
     - name: Commit and push changes
       if: steps.changes.outputs.changed == 'true'
       run: |
+        echo "=== HACIENDO COMMIT ==="
         git config --local user.name "github-actions[bot]"
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git commit -m "🤖 Auto-update proxy list - $(date +'%Y-%m-%d %H:%M:%S')"
         git push
+        echo "✅ Commit realizado exitosamente"
+        
+    - name: Skip if no changes
+      if: steps.changes.outputs.changed == 'false'
+      run: |
+        echo "⚠️ No hay cambios en proxy.pac"
+        echo "=== CONTENIDO ACTUAL ==="
+        cat proxy.pac
