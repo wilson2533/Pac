@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import requests
-import json
 import re
 from datetime import datetime
+import os
 
 def fetch_proxies():
-    """Obtiene proxies de Geonode API con filtros más flexibles"""
-    url = "https://proxylist.geonode.com/api/proxy-list?limit=200&page=1&sort_by=lastChecked&sort_type=desc"
+    """Obtiene proxies de Geonode API - SOLO PÚBLICOS"""
+    url = "https://proxylist.geonode.com/api/proxy-list?limit=100&page=1&sort_by=lastChecked&sort_type=desc"
     
     try:
         print("🔍 Fetching proxies from Geonode API...")
@@ -15,106 +15,110 @@ def fetch_proxies():
         data = response.json()
         
         proxies = []
-        valid_count = 0
+        print(f"📊 Total proxies in API: {len(data.get('data', []))}")
         
         for proxy in data.get('data', []):
-            try:
-                # Debug: mostrar información del proxy
-                ip = proxy.get('ip')
-                port = proxy.get('port')
-                protocols = proxy.get('protocols', [])
-                uptime = proxy.get('uptime', 0)
+            ip = proxy.get('ip', '').strip()
+            port = proxy.get('port', '')
+            protocols = proxy.get('protocols', [])
+            
+            # FILTROS MÁS ESTRICTOS - solo proxies públicos
+            if (ip and port and protocols and 
+                any(p in ['http', 'https'] for p in protocols) and
+                # Excluir proxies que requieren autenticación
+                not proxy.get('password', False) and  # Sin contraseña
+                proxy.get('anonymityLevel', '') != 'elite' and  # Menos probabilidad de auth
+                proxy.get('uptime', 0) > 70 and  # Buen uptime
+                proxy.get('responseTime', 1000) < 5000):  # Respuesta rápida
                 
-                print(f"  Checking: {ip}:{port} - Protocols: {protocols} - Uptime: {uptime}%")
-                
-                # Condiciones más flexibles
-                if (ip and port and protocols and 
-                    any(p in ['http', 'https', 'socks4', 'socks5'] for p in protocols)):
-                    
-                    proxy_str = f"{ip}:{port}"
-                    proxies.append(proxy_str)
-                    valid_count += 1
-                    print(f"  ✅ Added: {proxy_str}")
-                    
-            except Exception as e:
-                print(f"  ❌ Error with proxy: {e}")
-                continue
+                proxy_str = f"{ip}:{port}"
+                proxies.append(proxy_str)
+                print(f"  ✅ Public: {proxy_str}")
         
-        print(f"✅ Found {valid_count} valid proxies from {len(data.get('data', []))} total")
-        return proxies[:50]  # Limitar a 50 proxies
+        print(f"✅ Public proxies found: {len(proxies)}")
+        
+        # Si no hay suficientes públicos, agregar algunos conocidos
+        if len(proxies) < 5:
+            print("🔄 Adding known public proxies...")
+            known_public = get_known_public_proxies()
+            proxies.extend(known_public)
+        
+        return proxies[:20]  # Limitar a 20 proxies
         
     except Exception as e:
-        print(f"❌ Error fetching from API: {e}")
-        # Fallback: retornar algunos proxies de respaldo
-        return get_fallback_proxies()
+        print(f"❌ API Error: {e}")
+        return get_known_public_proxies()
 
-def get_fallback_proxies():
-    """Proxies de respaldo en caso de que la API falle"""
-    fallback_proxies = [
-        "45.95.147.218:8080",
-        "45.95.147.221:8080",
-        "45.95.147.222:8080",
-        "45.95.147.226:8080",
-        "45.95.147.228:8080",
-        "45.95.147.230:8080",
-        "45.95.147.231:8080",
-        "45.95.147.232:8080"
+def get_known_public_proxies():
+    """Lista de proxies públicos conocidos y confiables"""
+    public_proxies = [
+        # Proxies públicos conocidos (sin autenticación)
+        "51.158.68.68:8811",
+        "51.158.68.133:8811", 
+        "188.166.56.246:3128",
+        "165.227.81.213:3128",
+        "138.197.157.60:3128",
+        "167.99.131.11:8080",
+        "167.99.131.12:8080",
+        "167.99.131.13:8080",
+        "68.183.230.184:3128",
+        "68.183.230.185:3128"
     ]
-    print(f"🔄 Using fallback proxies: {len(fallback_proxies)} proxies")
-    return fallback_proxies
+    print(f"🔧 Using known public proxies: {len(public_proxies)}")
+    return public_proxies
 
 def update_pac_file(proxies):
-    """Actualiza el archivo PAC con nuevos proxies"""
+    """Actualiza el archivo PAC"""
     try:
+        print("📖 Reading current PAC file...")
         with open('proxy.pac', 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Si no hay proxies de la API, usar fallback
-        if not proxies:
-            print("⚠️ No proxies from API, using fallback")
-            proxies = get_fallback_proxies()
-            
-        # Crear array JavaScript con los proxies
-        proxies_js = ',\n        '.join([f'"{proxy}"' for proxy in proxies])
+        print(f"📝 Updating with {len(proxies)} PUBLIC proxies")
         
-        # Reemplazar la sección de proxies
+        # Actualizar los proxies
+        proxies_js = ',\n        '.join([f'"{proxy}"' for proxy in proxies])
         new_content = re.sub(
-            r'var proxies = \[[\s\S]*?\];',
+            r'var proxies = \[[^\]]*\];',
             f'var proxies = [\n        {proxies_js}\n    ];',
-            content
+            content,
+            flags=re.DOTALL
         )
         
-        # Agregar timestamp de actualización
+        # Actualizar timestamp y contador
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+        new_content = re.sub(
+            r'// Proxy Auto-Config file.*',
+            f'// Proxy Auto-Config file - {len(proxies)} PUBLIC proxies',
+            new_content
+        )
         new_content = re.sub(
             r'// Última actualización:.*',
             f'// Última actualización: {timestamp}',
             new_content
         )
         
-        # Agregar contador de proxies
-        new_content = re.sub(
-            r'// Proxy Auto-Config file.*',
-            f'// Proxy Auto-Config file - {len(proxies)} proxies activos',
-            new_content
-        )
-        
+        # Escribir el archivo
         with open('proxy.pac', 'w', encoding='utf-8') as f:
             f.write(new_content)
         
-        print(f"📝 Updated PAC file with {len(proxies)} proxies")
+        print("✅ PAC file updated successfully")
         return True
         
     except Exception as e:
-        print(f"❌ Error updating PAC file: {e}")
+        print(f"❌ Error updating PAC: {e}")
         return False
 
 if __name__ == "__main__":
-    print("🚀 Starting proxy update...")
+    print("🚀 STARTING PUBLIC PROXY UPDATE")
+    print("🎯 Filtering ONLY public proxies (no authentication)")
+    
     proxies = fetch_proxies()
+    
     if update_pac_file(proxies):
-        print("✅ Update completed successfully")
+        print("🎉 UPDATE COMPLETED SUCCESSFULLY")
+        print(f"📊 Final proxy count: {len(proxies)} PUBLIC proxies")
         exit(0)
     else:
-        print("❌ Update failed")
+        print("💥 UPDATE FAILED")
         exit(1)
