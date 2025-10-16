@@ -10,11 +10,15 @@ on:
 jobs:
   update-proxies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Agregar este permiso
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+      with:
+        token: ${{ secrets.PAT_TOKEN }}  # Usar el PAT
+        
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -33,5 +37,5 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add proxy.pac
-        git diff --staged --quiet || git commit -m "Auto-update proxy list - $(date)"
+        git diff --staged --quiet || git commit -m "Auto-update proxy list - $(date +'%Y-%m-%d %H:%M:%S')"
         git push
