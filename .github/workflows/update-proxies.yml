@@ -1,0 +1,37 @@
+name: Update Proxy List Daily
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Cada 6 horas
+  workflow_dispatch:  # Permite ejecución manual
+  push:
+    branches: [ main ]
+
+jobs:
+  update-proxies:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+        
+    - name: Update proxy list
+      run: python scripts/update_proxies.py
+      
+    - name: Commit and push if changed
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add proxy.pac
+        git diff --staged --quiet || git commit -m "Auto-update proxy list - $(date)"
+        git push
