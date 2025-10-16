@@ -2,8 +2,8 @@ name: Update Proxy List
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Cada 6 horas
-  workflow_dispatch:        # Ejecución manual
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
   push:
     branches: [ main ]
 
@@ -29,54 +29,57 @@ jobs:
       run: |
         pip install requests
         
-    - name: Update proxy list
-      id: update
+    - name: Debug - Check current PAC file
       run: |
-        # Mostrar el contenido actual antes de cambiar
-        echo "=== CONTENIDO ACTUAL DEL PAC ==="
-        head -20 proxy.pac
-        echo "================================="
+        echo "=== INICIO DEL ARCHIVO PAC ACTUAL ==="
+        head -30 proxy.pac
+        echo "=== FIN DEL ARCHIVO PAC ACTUAL ==="
+        echo "📄 Tamaño del archivo: $(wc -l proxy.pac) líneas"
         
-        # Ejecutar el script de actualización
+    - name: Update proxy list
+      run: |
+        echo "🚀 Ejecutando script de actualización..."
         python scripts/update_proxies.py
         
-        # Mostrar el contenido después de cambiar
-        echo "=== CONTENIDO NUEVO DEL PAC ==="
-        head -20 proxy.pac
-        echo "================================"
+    - name: Debug - Check PAC file after update
+      run: |
+        echo "=== INICIO DEL ARCHIVO PAC DESPUÉS DE ACTUALIZAR ==="
+        head -30 proxy.pac
+        echo "=== FIN DEL ARCHIVO PAC DESPUÉS DE ACTUALIZAR ==="
+        echo "📄 Tamaño del archivo: $(wc -l proxy.pac) líneas"
         
-    - name: Check for changes
+    - name: Check for changes with git
       id: changes
       run: |
-        echo "=== VERIFICANDO CAMBIOS ==="
+        echo "=== ESTADO DE GIT ==="
         git status
-        git diff proxy.pac || true
+        echo "=== DIFF DETALLADO ==="
+        git diff proxy.pac || echo "No hay diferencias"
         
-        # Agregar el archivo modificado
+        # Verificar cambios
         git add proxy.pac
-        
-        # Verificar si hay cambios para commit
-        if ! git diff --staged --quiet; then
-          echo "changed=true" >> $GITHUB_OUTPUT
-          echo "✅ Hay cambios para commit"
-        else
+        if git diff --staged --quiet; then
           echo "changed=false" >> $GITHUB_OUTPUT
-          echo "❌ No hay cambios para commit"
+          echo "❌ NO HAY CAMBIOS DETECTADOS"
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "✅ HAY CAMBIOS DETECTADOS"
         fi
         
     - name: Commit and push changes
       if: steps.changes.outputs.changed == 'true'
       run: |
-        echo "=== HACIENDO COMMIT ==="
+        echo "🎉 HACIENDO COMMIT DE LOS CAMBIOS"
         git config --local user.name "github-actions[bot]"
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git commit -m "🤖 Auto-update proxy list - $(date +'%Y-%m-%d %H:%M:%S')"
         git push
-        echo "✅ Commit realizado exitosamente"
+        echo "✅ COMMIT EXITOSO"
         
-    - name: Skip if no changes
+    - name: Debug - No changes found
       if: steps.changes.outputs.changed == 'false'
       run: |
-        echo "⚠️ No hay cambios en proxy.pac"
-        echo "=== CONTENIDO ACTUAL ==="
+        echo "❌❌❌ PROBLEMA: EL SCRIPT NO MODIFICÓ EL ARCHIVO ❌❌❌"
+        echo "=== CONTENIDO COMPLETO DEL PAC ==="
         cat proxy.pac
+        echo "=== FIN DEL CONTENIDO ===""
