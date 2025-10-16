@@ -6,7 +6,7 @@ import os
 
 def fetch_proxies():
     """Obtiene proxies de Geonode API - SOLO PÚBLICOS"""
-    url = "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text&timeout=20"
+    url = "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/protocols/socks5/data.txt"
     
     try:
         print("🔍 Fetching proxies from Geonode API...")
