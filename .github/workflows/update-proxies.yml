@@ -1,9 +1,9 @@
-name: Update Proxy List Daily
+name: Update Proxy List
 
 on:
   schedule:
     - cron: '0 */6 * * *'  # Cada 6 horas
-  workflow_dispatch:  # Permite ejecución manual
+  workflow_dispatch:        # Ejecución manual
   push:
     branches: [ main ]
 
@@ -11,31 +11,41 @@ jobs:
   update-proxies:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Agregar este permiso
+      contents: write
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        token: ${{ secrets.PAT_TOKEN }}  # Usar el PAT
-        
-    - name: Set up Python
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
         
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
         pip install requests
         
     - name: Update proxy list
       run: python scripts/update_proxies.py
-      
-    - name: Commit and push if changed
+        
+    - name: Check for changes
+      id: changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
         git add proxy.pac
-        git diff --staged --quiet || git commit -m "Auto-update proxy list - $(date +'%Y-%m-%d %H:%M:%S')"
+        if git diff --staged --quiet; then
+          echo "changed=false" >> $GITHUB_OUTPUT
+        else
+          echo "changed=true" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit and push changes
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git commit -m "🤖 Auto-update proxy list - $(date +'%Y-%m-%d %H:%M:%S')"
         git push
