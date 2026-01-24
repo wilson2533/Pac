@@ -1,5 +1,5 @@
 // Proxy Auto-Config file - 10 PUBLIC proxies
-// Última actualización: 2026-01-24 12:24:13 UTC
+// Última actualización: 2026-01-24 18:18:52 UTC
 
 function FindProxyForURL(url, host) {
     // Dominios que NO usarán proxy
